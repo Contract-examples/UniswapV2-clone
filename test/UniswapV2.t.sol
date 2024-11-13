@@ -229,7 +229,7 @@ contract UniswapV2Test is Test {
 
         // create tokenA-WETH pair
         address pair = factory.createPair(address(tokenA), address(weth));
-        console.log("RNT-WETH Pair created at:", pair);
+        console.log("RNT(tokenA)-WETH Pair created at:", pair);
 
         // approve tokenA for router
         tokenA.approve(address(router), type(uint256).max);
@@ -239,16 +239,16 @@ contract UniswapV2Test is Test {
 
         // add liquidity
         (uint256 amountToken, uint256 amountETH, uint256 liquidity) = router.addLiquidityETH{ value: amountETHDesired }(
-            address(tokenA), // RNT token
-            amountTokenDesired, // RNT amount
-            0, // min RNT
+            address(tokenA), // RNT(tokenA) token
+            amountTokenDesired, // RNT(tokenA) amount
+            0, // min RNT(tokenA)
             0, // min ETH
             user, // to
             block.timestamp + 1 // deadline
         );
 
         console.log("Liquidity added successfully");
-        console.log("RNT amount:", amountToken);
+        console.log("RNT(tokenA) amount:", amountToken);
         console.log("ETH amount:", amountETH);
         console.log("Liquidity tokens:", liquidity);
 
