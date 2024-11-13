@@ -10,8 +10,11 @@ contract UniswapV2Factory is IUniswapV2Factory {
     mapping(address => mapping(address => address)) public getPair;
     address[] public allPairs;
 
+    bytes32 public INIT_CODE_HASH;
+
     constructor(address _feeToSetter) {
         feeToSetter = _feeToSetter;
+        INIT_CODE_HASH = keccak256(abi.encodePacked(type(UniswapV2Pair).creationCode));
     }
 
     function allPairsLength() external view returns (uint256) {
