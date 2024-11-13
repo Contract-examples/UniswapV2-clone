@@ -2,11 +2,13 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import "../src/core/UniswapV2Factory.sol";
 import "../src/core/UniswapV2Pair.sol";
-import {UniswapV2Router02} from "../src/periphery/UniswapV2Router02.sol";
-import {ERC20 as TestERC20} from "../src/periphery/test/ERC20.sol";
-import {WETH9} from "../src/periphery/test/WETH9.sol";
+import { UniswapV2Router02 } from "../src/periphery/UniswapV2Router02.sol";
+import { ERC20 as TestERC20 } from "../src/periphery/test/ERC20.sol";
+import { WETH9 } from "../src/periphery/test/WETH9.sol";
+import { UniswapV2Library } from "../src/periphery/libraries/UniswapV2Library.sol";
 
 contract UniswapV2Test is Test {
     UniswapV2Factory public factory;
@@ -18,25 +20,37 @@ contract UniswapV2Test is Test {
     address public owner;
     address public user;
 
+    event InitCodeHash(bytes32 hash);
+
+    receive() external payable { }
+
     function setUp() public {
-        // 设置测试账户
         owner = address(this);
-        user = address(0xABCD);
+        user = makeAddr("user");
         vm.startPrank(owner);
 
-        // 部署合约
+        // deploy v2
         factory = new UniswapV2Factory(owner);
         weth = new WETH9();
         router = new UniswapV2Router02(address(factory), address(weth));
 
-        // 部署测试代币
+        // deploy test token
         tokenA = new TestERC20(1_000_000 ether); // 1M tokens
         tokenB = new TestERC20(1_000_000 ether); // 1M tokens
 
-        // 给测试用户转一些代币
+        // transfer some tokens to user
         tokenA.transfer(user, 10_000 ether);
         tokenB.transfer(user, 10_000 ether);
         vm.stopPrank();
+
+        // confirm user balance
+        assertEq(tokenA.balanceOf(user), 10_000 ether);
+        assertEq(tokenB.balanceOf(user), 10_000 ether);
+    }
+
+    function testInitCodeHash() public {
+        bytes32 hash = keccak256(abi.encodePacked(type(UniswapV2Pair).creationCode));
+        emit InitCodeHash(hash);
     }
 
     function testCreatePair() public {
@@ -48,30 +62,78 @@ contract UniswapV2Test is Test {
     function testAddLiquidity() public {
         vm.startPrank(user);
 
-        // 授权
+        // create pair and get pair address
+        address pair = factory.createPair(address(tokenA), address(tokenB));
+
+        // print pair address
+        address actualPair = factory.getPair(address(tokenA), address(tokenB));
+        console.log("Pair created at:", actualPair);
+
+        // check pair is initialized
+        (address token0, address token1) =
+            address(tokenA) < address(tokenB) ? (address(tokenA), address(tokenB)) : (address(tokenB), address(tokenA));
+
+        assertEq(UniswapV2Pair(pair).token0(), token0, "Token0 not set correctly");
+        assertEq(UniswapV2Pair(pair).token1(), token1, "Token1 not set correctly");
+
+        // approve tokens for router
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
+        console.log("Tokens approved for router");
 
-        // 添加流动性
-        (uint256 amountA, uint256 amountB, uint256 liquidity) = router.addLiquidity(
+        console.log("Router address:", address(router));
+        console.log("Factory address:", address(factory));
+        console.log("TokenA address:", address(tokenA));
+        console.log("TokenB address:", address(tokenB));
+        console.log("User address:", user);
+
+        // check initial reserves
+        (uint112 reserve0, uint112 reserve1,) = UniswapV2Pair(pair).getReserves();
+        console.log("Initial reserves - reserve0:", reserve0, "reserve1:", reserve1);
+
+        // check pairFor calculated address
+        address calculatedPair = UniswapV2Library.pairFor(address(factory), address(tokenA), address(tokenB));
+        console.log("Calculated pair address:", calculatedPair);
+        console.log("Actual pair address:", pair);
+
+        // check init code hash
+        bytes32 hash = keccak256(abi.encodePacked(type(UniswapV2Pair).creationCode));
+        bytes32 libraryHash = hex"96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f";
+        console.logBytes32(hash);
+        console.log("Current init code hash (hex):", vm.toString(hash));
+        console.log("Library init code hash (hex):", vm.toString(libraryHash));
+
+        uint256 amountA = 1000 ether;
+        uint256 amountB = 1000 ether;
+
+        // add liquidity
+        (uint256 actualAmountA, uint256 actualAmountB, uint256 liquidity) = router.addLiquidity(
             address(tokenA),
             address(tokenB),
-            1000 ether, // desired amount A
-            1000 ether, // desired amount B
+            amountA, // desired amount A
+            amountB, // desired amount B
             0, // min amount A
             0, // min amount B
             user, // to
             block.timestamp + 1 // deadline
         );
 
-        assertTrue(amountA > 0);
-        assertTrue(amountB > 0);
-        assertTrue(liquidity > 0);
+        console.log("Liquidity added successfully");
+        console.log("Actual amount A:", actualAmountA);
+        console.log("Actual amount B:", actualAmountB);
+        console.log("Liquidity tokens:", liquidity);
 
-        // 检查代币是否被转移
-        address pair = factory.getPair(address(tokenA), address(tokenB));
-        assertEq(tokenA.balanceOf(pair), amountA);
-        assertEq(tokenB.balanceOf(pair), amountB);
+        // check results
+        assertTrue(actualAmountA > 0, "Amount A should be greater than 0");
+        assertTrue(actualAmountB > 0, "Amount B should be greater than 0");
+        assertTrue(liquidity > 0, "Liquidity should be greater than 0");
+
+        // check tokens are transferred to pair
+        assertEq(tokenA.balanceOf(pair), actualAmountA, "Pair should have correct amount of token A");
+        assertEq(tokenB.balanceOf(pair), actualAmountB, "Pair should have correct amount of token B");
+
+        // check user LP tokens balance
+        assertEq(UniswapV2Pair(pair).balanceOf(user), liquidity, "User should have correct LP tokens");
 
         vm.stopPrank();
     }
@@ -79,31 +141,36 @@ contract UniswapV2Test is Test {
     function testSwap() public {
         vm.startPrank(user);
 
-        // 先添加流动性
+        // create pair
+        factory.createPair(address(tokenA), address(tokenB));
+
+        // approve tokens for router
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
 
+        // add liquidity
         router.addLiquidity(address(tokenA), address(tokenB), 1000 ether, 1000 ether, 0, 0, user, block.timestamp + 1);
 
-        // 记录交换前的余额
+        // record balance before swap
         uint256 tokenBBalanceBefore = tokenB.balanceOf(user);
 
-        // 用 tokenA 换 tokenB
+        // prepare swap parameters
+        uint256 amountIn = 10 ether;
         address[] memory path = new address[](2);
         path[0] = address(tokenA);
         path[1] = address(tokenB);
 
-        router.swapExactTokensForTokens(
-            10 ether, // 输入数量
-            1, // 最小输出数量
-            path, // 交易路径
-            user, // 接收地址
-            block.timestamp + 1 // 截止时间
-        );
+        // estimate output amount
+        uint256[] memory amounts = router.getAmountsOut(amountIn, path);
+        uint256 amountOutMin = amounts[1] * 99 / 100; // allow 1% slippage
 
-        // 验证交换结果
+        // execute swap
+        router.swapExactTokensForTokens(amountIn, amountOutMin, path, user, block.timestamp + 1);
+
+        // check results
         uint256 tokenBBalanceAfter = tokenB.balanceOf(user);
-        assertTrue(tokenBBalanceAfter > tokenBBalanceBefore);
+        assertTrue(tokenBBalanceAfter > tokenBBalanceBefore, "Should receive token B");
+        assertEq(tokenBBalanceAfter - tokenBBalanceBefore, amounts[1], "Should receive expected amount");
 
         vm.stopPrank();
     }
@@ -111,34 +178,45 @@ contract UniswapV2Test is Test {
     function testRemoveLiquidity() public {
         vm.startPrank(user);
 
-        // 先添加流动性
+        // create pair
+        factory.createPair(address(tokenA), address(tokenB));
+
+        // approve tokens for router
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
 
+        // add liquidity
         (uint256 amountA, uint256 amountB, uint256 liquidity) = router.addLiquidity(
             address(tokenA), address(tokenB), 1000 ether, 1000 ether, 0, 0, user, block.timestamp + 1
         );
 
-        // 获取 pair 地址并授权
+        // get pair address and approve
         address pair = factory.getPair(address(tokenA), address(tokenB));
-        UniswapV2Pair(pair).approve(address(router), type(uint256).max);
+        UniswapV2Pair(pair).approve(address(router), liquidity);
 
-        // 移除流动性
-        (uint256 removeAmountA, uint256 removeAmountB) = router.removeLiquidity(
-            address(tokenA),
-            address(tokenB),
-            liquidity, // 移除全部流动性
-            0, // 最小 A 数量
-            0, // 最小 B 数量
-            user, // 接收地址
-            block.timestamp + 1 // 截止时间
+        // record balance before removing liquidity
+        uint256 tokenABalanceBefore = tokenA.balanceOf(user);
+        uint256 tokenBBalanceBefore = tokenB.balanceOf(user);
+
+        // remove liquidity
+        (uint256 removeAmountA, uint256 removeAmountB) =
+            router.removeLiquidity(address(tokenA), address(tokenB), liquidity, 0, 0, user, block.timestamp + 1);
+
+        // check results
+        // remember to subtract the minimum liquidity
+        assertEq(
+            removeAmountA,
+            amountA - IUniswapV2Pair(pair).MINIMUM_LIQUIDITY(),
+            "Should receive correct amount of token A"
         );
-
-        // 验证结果
-        assertTrue(removeAmountA > 0);
-        assertTrue(removeAmountB > 0);
-        assertEq(removeAmountA, amountA);
-        assertEq(removeAmountB, amountB);
+        assertEq(
+            removeAmountB,
+            amountB - IUniswapV2Pair(pair).MINIMUM_LIQUIDITY(),
+            "Should receive correct amount of token B"
+        );
+        assertEq(tokenA.balanceOf(user) - tokenABalanceBefore, removeAmountA, "Balance change should match");
+        assertEq(tokenB.balanceOf(user) - tokenBBalanceBefore, removeAmountB, "Balance change should match");
+        assertEq(IUniswapV2Pair(pair).balanceOf(user), 0, "Should have no LP tokens left");
 
         vm.stopPrank();
     }
