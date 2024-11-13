@@ -58,3 +58,9 @@ Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 2.86ms (9.40ms CPU 
 
 Ran 1 test suite in 11.54ms (2.86ms CPU time): 9 tests passed, 0 failed, 0 skipped (9 total tests)
 ```
+
+
+## References
+- https://github.com/Uniswap/v2-core
+- https://github.com/Uniswap/v2-periphery
+- https://github.com/Uniswap/solidity-lib
