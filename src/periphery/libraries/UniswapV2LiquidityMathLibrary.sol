@@ -2,8 +2,8 @@ pragma solidity ^0.8.28;
 
 import "../../core/interfaces/IUniswapV2Pair.sol";
 import "../../core/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/lib/contracts/libraries/Babylonian.sol";
-import "@uniswap/lib/contracts/libraries/FullMath.sol";
+import "./Babylonian.sol";
+import "./FullMath.sol";
 
 import "./SafeMath.sol";
 import "./UniswapV2Library.sol";

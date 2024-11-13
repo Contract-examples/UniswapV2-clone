@@ -1,7 +1,7 @@
 pragma solidity ^0.8.28;
 
 import "../core/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import "./libraries/TransferHelper.sol";
 
 import "./libraries/UniswapV2Library.sol";
 import "./interfaces/IUniswapV2Router01.sol";
@@ -17,7 +17,7 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         _;
     }
 
-    constructor(address _factory, address _WETH) public {
+    constructor(address _factory, address _WETH) {
         factory = _factory;
         WETH = _WETH;
     }
@@ -168,7 +168,7 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         returns (uint256 amountA, uint256 amountB)
     {
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
-        uint256 value = approveMax ? uint256(-1) : liquidity;
+        uint256 value = approveMax ? type(uint256).max : liquidity;
         IUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
     }
@@ -190,7 +190,7 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         returns (uint256 amountToken, uint256 amountETH)
     {
         address pair = UniswapV2Library.pairFor(factory, token, WETH);
-        uint256 value = approveMax ? uint256(-1) : liquidity;
+        uint256 value = approveMax ? type(uint256).max : liquidity;
         IUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         (amountToken, amountETH) = removeLiquidityETH(token, liquidity, amountTokenMin, amountETHMin, to, deadline);
     }

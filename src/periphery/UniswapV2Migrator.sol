@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
 
-import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import "./libraries/TransferHelper.sol";
 
 import "./interfaces/IUniswapV2Migrator.sol";
 import "./interfaces/V1/IUniswapV1Factory.sol";
@@ -12,7 +13,7 @@ contract UniswapV2Migrator is IUniswapV2Migrator {
     IUniswapV1Factory immutable factoryV1;
     IUniswapV2Router01 immutable router;
 
-    constructor(address _factoryV1, address _router) public {
+    constructor(address _factoryV1, address _router) {
         factoryV1 = IUniswapV1Factory(_factoryV1);
         router = IUniswapV2Router01(_router);
     }
@@ -34,17 +35,11 @@ contract UniswapV2Migrator is IUniswapV2Migrator {
         IUniswapV1Exchange exchangeV1 = IUniswapV1Exchange(factoryV1.getExchange(token));
         uint256 liquidityV1 = exchangeV1.balanceOf(msg.sender);
         require(exchangeV1.transferFrom(msg.sender, address(this), liquidityV1), "TRANSFER_FROM_FAILED");
-        (uint256 amountETHV1, uint256 amountTokenV1) = exchangeV1.removeLiquidity(liquidityV1, 1, 1, uint256(-1));
+        (uint256 amountETHV1, uint256 amountTokenV1) = exchangeV1.removeLiquidity(liquidityV1, 1, 1, type(uint256).max);
         TransferHelper.safeApprove(token, address(router), amountTokenV1);
-        (uint256 amountTokenV2, uint256 amountETHV2,) = router.addLiquidityETH{ value: amountETHV1 }(
+        (,, uint256 liquidityV2) = router.addLiquidityETH{ value: amountETHV1 }(
             token, amountTokenV1, amountTokenMin, amountETHMin, to, deadline
         );
-        if (amountTokenV1 > amountTokenV2) {
-            TransferHelper.safeApprove(token, address(router), 0); // be a good blockchain citizen, reset allowance to 0
-            TransferHelper.safeTransfer(token, msg.sender, amountTokenV1 - amountTokenV2);
-        } else if (amountETHV1 > amountETHV2) {
-            // addLiquidityETH guarantees that all of amountETHV1 or amountTokenV1 will be used, hence this else is safe
-            TransferHelper.safeTransferETH(msg.sender, amountETHV1 - amountETHV2);
-        }
+        require(liquidityV2 > 0, "INSUFFICIENT_LIQUIDITY");
     }
 }

@@ -20,7 +20,7 @@ contract ERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-    constructor(uint256 _totalSupply) public {
+    constructor(uint256 _totalSupply) {
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -71,7 +71,7 @@ contract ERC20 {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        if (allowance[from][msg.sender] != uint256(-1)) {
+        if (allowance[from][msg.sender] != type(uint256).max) {
             allowance[from][msg.sender] = allowance[from][msg.sender].sub(value);
         }
         _transfer(from, to, value);
