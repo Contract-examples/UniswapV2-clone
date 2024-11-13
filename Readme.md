@@ -1,6 +1,7 @@
 # UniswapV2-clone
 
-UniswapV2Factory ->(creates) ->UniswapV2Pair ->(inherits) ->UniswapV2ERC20 
+## Core
+``UniswapV2Factory ->(creates) ->UniswapV2Pair ->(inherits) ->UniswapV2ERC20 ``
 
 ## Features
 - Foundry template
