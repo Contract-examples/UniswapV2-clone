@@ -39,11 +39,11 @@ Logs:
   Actual amount B: 1000000000000000000000
   Liquidity tokens: 999999999999999999000
 
-[PASS] testAddLiquidityETH() (gas: 2385152)
+[PASS] testAddLiquidityETH() (gas: 2385181)
 Logs:
-  RNT-WETH Pair created at: 0x58cC05ab181E6f74bFD74497Cb6e6e01EBa1acc1
+  RNT(tokenA)-WETH Pair created at: 0x58cC05ab181E6f74bFD74497Cb6e6e01EBa1acc1
   Liquidity added successfully
-  RNT amount: 1000000000000000000000
+  RNT(tokenA) amount: 1000000000000000000000
   ETH amount: 1000000000000000000
   Liquidity tokens: 31622776601683792319
 
@@ -54,9 +54,9 @@ Logs:
 [PASS] testSwap() (gas: 2431558)
 [PASS] testSwapExactETHForTokens() (gas: 2434951)
 [PASS] testSwapExactTokensForETH() (gas: 2432616)
-Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 2.86ms (9.40ms CPU time)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 2.47ms (8.05ms CPU time)
 
-Ran 1 test suite in 11.54ms (2.86ms CPU time): 9 tests passed, 0 failed, 0 skipped (9 total tests)
+Ran 1 test suite in 11.03ms (2.47ms CPU time): 9 tests passed, 0 failed, 0 skipped (9 total tests)
 ```
 
 
