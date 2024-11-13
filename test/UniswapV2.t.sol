@@ -220,4 +220,137 @@ contract UniswapV2Test is Test {
 
         vm.stopPrank();
     }
+
+    function testAddLiquidityETH() public {
+        vm.startPrank(user);
+
+        // give user some ETH
+        vm.deal(user, 100 ether);
+
+        // create tokenA-WETH pair
+        address pair = factory.createPair(address(tokenA), address(weth));
+        console.log("RNT-WETH Pair created at:", pair);
+
+        // approve tokenA for router
+        tokenA.approve(address(router), type(uint256).max);
+
+        uint256 amountTokenDesired = 1000 ether;
+        uint256 amountETHDesired = 1 ether;
+
+        // add liquidity
+        (uint256 amountToken, uint256 amountETH, uint256 liquidity) = router.addLiquidityETH{ value: amountETHDesired }(
+            address(tokenA), // RNT token
+            amountTokenDesired, // RNT amount
+            0, // min RNT
+            0, // min ETH
+            user, // to
+            block.timestamp + 1 // deadline
+        );
+
+        console.log("Liquidity added successfully");
+        console.log("RNT amount:", amountToken);
+        console.log("ETH amount:", amountETH);
+        console.log("Liquidity tokens:", liquidity);
+
+        // check results
+        assertTrue(amountToken > 0, "Token amount should be greater than 0");
+        assertTrue(amountETH > 0, "ETH amount should be greater than 0");
+        assertTrue(liquidity > 0, "Liquidity should be greater than 0");
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactETHForTokens() public {
+        vm.startPrank(user);
+        vm.deal(user, 100 ether);
+
+        // add liquidity
+        tokenA.approve(address(router), type(uint256).max);
+        router.addLiquidityETH{ value: 50 ether }(address(tokenA), 5000 ether, 0, 0, user, block.timestamp + 1);
+
+        // record balance before swap
+        uint256 tokenBalanceBefore = tokenA.balanceOf(user);
+        uint256 ethBalanceBefore = user.balance;
+
+        // prepare swap parameters
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(tokenA);
+
+        // swap 1 ETH for tokenA
+        uint256 swapAmount = 1 ether;
+        uint256[] memory amounts = router.getAmountsOut(swapAmount, path);
+        uint256 amountOutMin = amounts[1] * 99 / 100; // allow 1% slippage
+
+        router.swapExactETHForTokens{ value: swapAmount }(amountOutMin, path, user, block.timestamp + 1);
+
+        // check results
+        assertTrue(tokenA.balanceOf(user) > tokenBalanceBefore, "Should receive tokens");
+        assertTrue(user.balance < ethBalanceBefore, "Should spend ETH");
+        assertEq(tokenA.balanceOf(user) - tokenBalanceBefore, amounts[1], "Should receive expected amount");
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactTokensForETH() public {
+        vm.startPrank(user);
+        vm.deal(user, 100 ether);
+
+        // add liquidity
+        tokenA.approve(address(router), type(uint256).max);
+        router.addLiquidityETH{ value: 50 ether }(address(tokenA), 5000 ether, 0, 0, user, block.timestamp + 1);
+
+        // record balance before swap
+        uint256 ethBalanceBefore = user.balance;
+
+        // prepare swap parameters
+        uint256 swapAmount = 100 ether; // use 100 tokenA
+        address[] memory path = new address[](2);
+        path[0] = address(tokenA);
+        path[1] = address(weth);
+
+        // estimate output amount
+        uint256[] memory amounts = router.getAmountsOut(swapAmount, path);
+        uint256 amountOutMin = amounts[1] * 99 / 100; // allow 1% slippage
+
+        router.swapExactTokensForETH(swapAmount, amountOutMin, path, user, block.timestamp + 1);
+
+        // check results
+        assertTrue(user.balance > ethBalanceBefore, "Should receive ETH");
+        assertEq(user.balance - ethBalanceBefore, amounts[1], "Should receive expected amount of ETH");
+
+        vm.stopPrank();
+    }
+
+    function testRemoveLiquidityETH() public {
+        vm.startPrank(user);
+        vm.deal(user, 100 ether);
+
+        // add liquidity
+        tokenA.approve(address(router), type(uint256).max);
+        uint256 tokenAmount = 1000 ether;
+        uint256 ethAmount = 1 ether;
+
+        (uint256 amountToken, uint256 amountETH, uint256 liquidity) =
+            router.addLiquidityETH{ value: ethAmount }(address(tokenA), tokenAmount, 0, 0, user, block.timestamp + 1);
+
+        // get pair address and approve
+        address pair = factory.getPair(address(tokenA), address(weth));
+        UniswapV2Pair(pair).approve(address(router), liquidity);
+
+        // record balance before removing liquidity
+        uint256 tokenBalanceBefore = tokenA.balanceOf(user);
+        uint256 ethBalanceBefore = user.balance;
+
+        // remove liquidity
+        (uint256 removeTokenAmount, uint256 removeETHAmount) =
+            router.removeLiquidityETH(address(tokenA), liquidity, 0, 0, user, block.timestamp + 1);
+
+        // check results
+        assertEq(tokenA.balanceOf(user) - tokenBalanceBefore, removeTokenAmount, "Token balance change should match");
+        assertEq(user.balance - ethBalanceBefore, removeETHAmount, "ETH balance change should match");
+        assertEq(UniswapV2Pair(pair).balanceOf(user), 0, "Should have no LP tokens left");
+
+        vm.stopPrank();
+    }
 }
